@@ -134,14 +134,25 @@ export interface ProjectLead {
   workspaceNotes?: string;
   googleTasksSyncedAt?: string;
   googleCalendarSyncedAt?: string;
+  urgencyLevel?: UrgencyLevel;
 
   createdAt: string;
   updatedAt: string;
 }
 
-export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type UrgencyLevel = 'critical' | 'high' | 'medium' | 'low';
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent' | 'critical';
 export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'completed';
 export type TaskCategory = 'frontend' | 'backend' | 'design' | 'devops' | 'qa' | 'content' | 'general';
+
+export function normalizeUrgencyLevel(priorityOrUrgency?: string): UrgencyLevel {
+  if (!priorityOrUrgency) return 'medium';
+  const val = priorityOrUrgency.toLowerCase();
+  if (val === 'critical' || val === 'urgent') return 'critical';
+  if (val === 'high') return 'high';
+  if (val === 'medium') return 'medium';
+  return 'low';
+}
 
 export interface ProjectTask {
   id: string;

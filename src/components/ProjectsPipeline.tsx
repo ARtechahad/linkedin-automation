@@ -54,6 +54,7 @@ import { ProjectTimelineFullView } from './ProjectTimelineFullView';
 import { generateDefaultTasksForProject } from '../lib/timeTrackingDefaults';
 import { SkeletonKanban, SkeletonTable } from './SkeletonLoader';
 import { EmptyState } from './EmptyState';
+import { KanbanTaskSwimlanes } from './KanbanTaskSwimlanes';
 
 export const ProjectsPipeline: React.FC = () => {
   const {
@@ -74,6 +75,7 @@ export const ProjectsPipeline: React.FC = () => {
   } = useApp();
 
   const [viewMode, setViewMode] = useState<'kanban' | 'table' | 'timeline'>('kanban');
+  const [kanbanSubView, setKanbanSubView] = useState<'tasks_swimlanes' | 'deals_pipeline'>('tasks_swimlanes');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedChannel, setSelectedChannel] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -542,6 +544,43 @@ export const ProjectsPipeline: React.FC = () => {
             </button>
           </div>
 
+          {/* Kanban Sub-View Switcher (Tasks Swimlanes vs Deals Pipeline) */}
+          {viewMode === 'kanban' && (
+            <div className="flex items-center p-0.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-slate-900/80 shadow-2xs">
+              <button
+                type="button"
+                id="btn-kanban-tasks-swimlanes"
+                onClick={() => setKanbanSubView('tasks_swimlanes')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  kanbanSubView === 'tasks_swimlanes'
+                    ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs ring-1 ring-black/5 dark:ring-white/10'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+                title="Categorize project tasks into Horizontal Swimlanes by Urgency Level (Critical, High, Medium, Low)"
+              >
+                <Layers className="w-3.5 h-3.5 text-rose-500" />
+                <span>Task Swimlanes</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 font-extrabold">
+                  Urgency
+                </span>
+              </button>
+              <button
+                type="button"
+                id="btn-kanban-deals-pipeline"
+                onClick={() => setKanbanSubView('deals_pipeline')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  kanbanSubView === 'deals_pipeline'
+                    ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs ring-1 ring-black/5 dark:ring-white/10'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+                title="SOP Stages Deals Pipeline"
+              >
+                <KanbanIcon className="w-3.5 h-3.5" />
+                <span>Deals Pipeline</span>
+              </button>
+            </div>
+          )}
+
           {/* Debounced Auto-Save Status Indicator */}
           <div className="hidden lg:flex items-center">
             <AutoSaveIndicator
@@ -706,8 +745,22 @@ export const ProjectsPipeline: React.FC = () => {
             />
           )}
 
-          {/* KANBAN VIEW WITH SMOOTH MOTION DRAG & DROP */}
-          {viewMode === 'kanban' && (
+          {/* KANBAN VIEW: HORIZONTAL SWIMLANES BY URGENCY LEVEL */}
+          {viewMode === 'kanban' && kanbanSubView === 'tasks_swimlanes' && (
+            <KanbanTaskSwimlanes
+              projects={projects}
+              onOpenTimeTracker={(proj, taskId) => {
+                setTimeTrackingProject(proj);
+                setTimeTrackingTaskId(taskId);
+                setTimeTrackingInitialTab(taskId ? 'timer' : 'tasks');
+              }}
+              onUpdateProject={updateProject}
+              formatMoney={(amt) => `$${amt.toLocaleString()}`}
+            />
+          )}
+
+          {/* KANBAN DEALS PIPELINE (SOP STAGE COLUMNS) */}
+          {viewMode === 'kanban' && kanbanSubView === 'deals_pipeline' && (
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-start">
               {columns.map((col, colIndex) => {
                 const isDropTarget = activeDropColumnId === col.id && draggedProjectId !== null;

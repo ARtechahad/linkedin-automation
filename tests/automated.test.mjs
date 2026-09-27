@@ -318,4 +318,79 @@ describe('International Client Handling SOP - Automated Tests', () => {
       assert.equal(filtered[0].commissionRate, undefined);
     });
   });
+
+  describe('SOP Kanban: Horizontal Swimlanes Task Categorization by Urgency Level', () => {
+    function normalizeUrgencyLevel(priorityOrUrgency) {
+      if (!priorityOrUrgency) return 'medium';
+      const val = String(priorityOrUrgency).toLowerCase();
+      if (val === 'critical' || val === 'urgent') return 'critical';
+      if (val === 'high') return 'high';
+      if (val === 'medium') return 'medium';
+      return 'low';
+    }
+
+    const mockTasks = [
+      { id: 't1', title: 'Payment Gate Blocker', priority: 'critical', status: 'todo', estimatedHours: 2 },
+      { id: 't2', title: 'SSL Cert Deployment', priority: 'urgent', status: 'in_progress', estimatedHours: 1.5 },
+      { id: 't3', title: 'Multi-page Layout Spec', priority: 'high', status: 'review', estimatedHours: 8 },
+      { id: 't4', title: 'Staging DNS Architecture', priority: 'high', status: 'todo', estimatedHours: 3 },
+      { id: 't5', title: 'Brand Asset Ingestion', priority: 'medium', status: 'completed', estimatedHours: 2 },
+      { id: 't6', title: 'Code Refactoring', priority: 'low', status: 'todo', estimatedHours: 4 }
+    ];
+
+    test('Urgency Normalization maps critical and urgent to critical swimlane', () => {
+      assert.equal(normalizeUrgencyLevel('critical'), 'critical');
+      assert.equal(normalizeUrgencyLevel('urgent'), 'critical');
+      assert.equal(normalizeUrgencyLevel('high'), 'high');
+      assert.equal(normalizeUrgencyLevel('medium'), 'medium');
+      assert.equal(normalizeUrgencyLevel('low'), 'low');
+      assert.equal(normalizeUrgencyLevel(undefined), 'medium');
+    });
+
+    test('Categorizes tasks across the 4 discrete horizontal swimlanes', () => {
+      const swimlanes = { critical: [], high: [], medium: [], low: [] };
+      mockTasks.forEach(task => {
+        const lane = normalizeUrgencyLevel(task.priority);
+        swimlanes[lane].push(task);
+      });
+
+      assert.equal(swimlanes.critical.length, 2); // t1 (critical) + t2 (urgent)
+      assert.equal(swimlanes.high.length, 2);     // t3 + t4
+      assert.equal(swimlanes.medium.length, 1);   // t5
+      assert.equal(swimlanes.low.length, 1);      // t6
+    });
+
+    test('Categorizes each swimlane across 4 standard columns (todo, in_progress, review, completed)', () => {
+      const getColumnsForUrgency = (urgency) => {
+        const cols = { todo: [], in_progress: [], review: [], completed: [] };
+        mockTasks
+          .filter(t => normalizeUrgencyLevel(t.priority) === urgency)
+          .forEach(t => cols[t.status].push(t));
+        return cols;
+      };
+
+      const criticalCols = getColumnsForUrgency('critical');
+      assert.equal(criticalCols.todo.length, 1);
+      assert.equal(criticalCols.in_progress.length, 1);
+      assert.equal(criticalCols.review.length, 0);
+      assert.equal(criticalCols.completed.length, 0);
+    });
+
+    test('Simulates dragging task between swimlanes: updates priority to new Urgency Level', () => {
+      const task = { ...mockTasks[5] }; // low urgency 'Code Refactoring'
+      assert.equal(normalizeUrgencyLevel(task.priority), 'low');
+
+      // Promote task to Critical swimlane and In Progress column
+      const targetUrgency = 'critical';
+      const targetStatus = 'in_progress';
+      const updatedTask = {
+        ...task,
+        priority: targetUrgency,
+        status: targetStatus
+      };
+
+      assert.equal(normalizeUrgencyLevel(updatedTask.priority), 'critical');
+      assert.equal(updatedTask.status, 'in_progress');
+    });
+  });
 });

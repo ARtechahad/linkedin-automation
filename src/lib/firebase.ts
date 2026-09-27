@@ -29,11 +29,17 @@ import {
   addDoc,
   where,
   limit,
-  getDocFromServer
+  getDocFromServer,
+  setLogLevel
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { ProjectLead, UserRole } from '../types';
 import { localDatabase } from '../services/localDatabaseFallback';
+
+// Silence Firestore internal log warnings to prevent `(default) database not found` console flood
+try {
+  setLogLevel('silent');
+} catch {}
 
 // Initialize Firebase App instance
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -45,15 +51,19 @@ export const auth = getAuth(app);
 let isFirestoreAvailable = false;
 let isFirestoreDisabled = false;
 
-// Initialize Cloud Firestore with graceful fallback and bypass
+// Initialize Cloud Firestore with graceful fallback to non-default database ID or local storage
 const configAny = firebaseConfig as any;
-const FIRESTORE_DB_ID = configAny?.firestoreDatabaseId;
+// Check for non-default database ID in configuration or environment
+const envDatabaseId = typeof import.meta !== 'undefined' && (import.meta as any).env ? (import.meta as any).env.VITE_FIRESTORE_DATABASE_ID : undefined;
+const resolvedDatabaseId = configAny?.firestoreDatabaseId || configAny?.databaseId || envDatabaseId || undefined;
+const FIRESTORE_DB_ID = resolvedDatabaseId && resolvedDatabaseId !== '(default)' ? resolvedDatabaseId : undefined;
 
 let dbInstance: any = null;
 
 try {
   if (configAny?.projectId) {
-    if (FIRESTORE_DB_ID && FIRESTORE_DB_ID !== '(default)') {
+    if (FIRESTORE_DB_ID) {
+      // Use existing non-default database ID
       try {
         dbInstance = initializeFirestore(app, {
           localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
@@ -66,9 +76,11 @@ try {
           isFirestoreAvailable = true;
         } catch {
           dbInstance = null;
+          isFirestoreDisabled = true;
         }
       }
     } else {
+      // Attempt default initialization safely
       try {
         dbInstance = initializeFirestore(app, {
           localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
@@ -81,6 +93,7 @@ try {
           isFirestoreAvailable = true;
         } catch {
           dbInstance = null;
+          isFirestoreDisabled = true;
         }
       }
     }
@@ -88,6 +101,7 @@ try {
 } catch {
   dbInstance = null;
   isFirestoreAvailable = false;
+  isFirestoreDisabled = true;
 }
 
 export const db = dbInstance;

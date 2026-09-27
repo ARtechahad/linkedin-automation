@@ -72,10 +72,41 @@ Always generate output tailored to the user's prompt without fluff.`;
   });
 });
 
+// SSRF Prevention Helper: Validate local Ollama endpoint URLs
+function isSafeLocalEndpoint(urlStr: string): boolean {
+  try {
+    const parsed = new URL(urlStr);
+    const hostname = parsed.hostname.toLowerCase();
+    
+    // Explicitly block cloud instance metadata IP/hostnames
+    if (
+      hostname === '169.254.169.254' ||
+      hostname === 'metadata.google.internal' ||
+      hostname === 'instance-data' ||
+      hostname.endsWith('.internal')
+    ) {
+      return false;
+    }
+    
+    // Only allow http/https protocols
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 // 2. Hybrid AI Architecture: Test Local & Cloud Endpoints
 aiRouter.post('/test-local', async (req: Request, res: Response) => {
   const { endpoint, model } = req.body;
   const targetUrl = (endpoint || 'http://localhost:11434').replace(/\/+$/, '');
+
+  if (!isSafeLocalEndpoint(targetUrl)) {
+    return res.status(400).json({
+      ok: false,
+      message: 'Security error: Invalid or prohibited local endpoint address.'
+    });
+  }
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3500);
@@ -154,7 +185,14 @@ aiRouter.post('/universal-generate', async (req: Request, res: Response) => {
 
   // Provider 1: Local Ollama
   if (provider === 'local') {
-    const targetUrl = (endpoint || 'http://localhost:11434').replace(/\/+$/, '');
+    const rawEndpoint = endpoint || 'http://localhost:11434';
+    if (!isSafeLocalEndpoint(rawEndpoint)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid or disallowed local endpoint address'
+      });
+    }
+    const targetUrl = rawEndpoint.replace(/\/+$/, '');
     const targetModel = model || 'llama3.2';
     try {
       const controller = new AbortController();

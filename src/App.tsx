@@ -37,6 +37,7 @@ import { DiscordExportModal } from './components/DiscordExportModal';
 import { ToastNotification } from './components/ToastNotification';
 import { RoleLoginView } from './components/RoleLoginView';
 import { RoleRouteGuard } from './components/RoleRouteGuard';
+import { OfflineSyncBanner } from './components/OfflineSyncBanner';
 
 const AppContent: React.FC = () => {
   const {
@@ -250,6 +251,7 @@ const AppContent: React.FC = () => {
       </div>
 
       {/* Global Modals */}
+      <OfflineSyncBanner />
       <NewClientLeadModal />
       <AIAssistantModal />
       <AISettingsModal

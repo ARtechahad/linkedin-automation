@@ -16,6 +16,7 @@ import {
   subscribeProjectsFromFirestore
 } from '../lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { offlineSyncService } from '../services/offlineSyncService';
 
 interface AppContextType {
   role: UserRole;
@@ -605,15 +606,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     refreshProjects();
   }, [authToken]);
 
-  // Update project in Firestore and backend
+  // Update project in Firestore, local offline sync queue, and backend
   const updateProject = async (id: string, updates: Partial<ProjectLead>): Promise<boolean> => {
     try {
-      // Optimistic update
+      // 1. Optimistic UI update
       setProjects(prev => prev.map(p => (p.id === id ? { ...p, ...updates } : p)));
       
-      // Save directly to Firestore for durable persistence
+      // 2. Save directly to Firestore for durable persistence if connected
       saveProjectToFirestore({ id, ...updates }).catch(e => console.warn('Firestore project update warning:', e));
 
+      // 3. If offline, enqueue into the offline sync service for automatic reconciliation on reconnect
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        offlineSyncService.enqueue('project', 'update', id, updates);
+        showToast('Offline Mode: Changes queued locally. Will auto-sync when online.', 'info');
+        return true;
+      }
+
+      // 4. Send to backend REST API
       const res = await fetch(`/api/projects/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -622,14 +631,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (res.ok) {
         const data = await res.json();
         setProjects(prev => prev.map(p => (p.id === id ? data.project : p)));
-        showToast('Project updated & saved to Firestore.');
+        showToast('Project updated & saved to database.');
+        return true;
+      } else {
+        // Fallback: enqueue on non-200 server response
+        offlineSyncService.enqueue('project', 'update', id, updates);
         return true;
       }
-      return true; // Still true since Firestore was updated
     } catch (e) {
-      console.error(e);
-      showToast('Error updating project.');
-      return false;
+      console.warn('Network error during project update, enqueuing for offline sync:', e);
+      offlineSyncService.enqueue('project', 'update', id, updates);
+      showToast('Connection interrupted: Queued for auto-sync.', 'info');
+      return true;
     }
   };
 

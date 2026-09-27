@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import http from 'http';
 import path from 'path';
+import fs from 'fs';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 
@@ -96,26 +97,50 @@ async function startServer() {
   await initPostgresPool();
 
   const server = http.createServer(app);
+  const isProd = process.env.NODE_ENV === 'production';
+  const isHmrDisabled = process.env.DISABLE_HMR === 'true';
 
-  if (process.env.NODE_ENV !== 'production') {
+  if (!isProd) {
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
-        hmr: process.env.DISABLE_HMR === 'true' ? false : { server }
+        hmr: isHmrDisabled ? false : { server }
       },
       appType: 'spa'
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    // Resolve production static dist path with robust fallbacks
+    const candidatePaths = [
+      path.join(process.cwd(), 'dist'),
+      path.resolve(__dirname, 'dist'),
+      path.resolve(__dirname, '../dist')
+    ];
+    const distPath = candidatePaths.find(p => fs.existsSync(p)) || candidatePaths[0];
+
+    app.use(express.static(distPath, { index: false }));
+
+    // Fallback handler for unmatched API routes in production
+    app.all('/api/*', (req: Request, res: Response) => {
+      res.status(404).json({
+        success: false,
+        error: `API route not found: ${req.method} ${req.path}`
+      });
+    });
+
+    // SPA client-side routing fallback
     app.get('*', (req: Request, res: Response) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      const indexPath = path.join(distPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(500).send('Production build not found. Please run `npm run build`.');
+      }
     });
   }
 
   server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server listening on port ${PORT} at http://0.0.0.0:${PORT}`);
+    console.log(`[AgencyOps] Server listening on port ${PORT} at http://0.0.0.0:${PORT} (${isProd ? 'Production' : 'Development'})`);
   });
 }
 

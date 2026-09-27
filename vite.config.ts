@@ -1,10 +1,12 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
-import {VitePWA} from 'vite-plugin-pwa';
+import { defineConfig } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
+  const isHmrDisabled = process.env.DISABLE_HMR === 'true';
+
   return {
     plugins: [
       react(),
@@ -44,8 +46,68 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
+          navigateFallbackDenylist: [/^\/api/],
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+          maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+          runtimeCaching: [
+            {
+              // 1. Critical Project Metadata & SOP Cache for International Travel Connectivity
+              urlPattern: ({ url }) => 
+                url.pathname.startsWith('/api/projects') ||
+                url.pathname.startsWith('/api/portal') ||
+                url.pathname.startsWith('/api/leads') ||
+                url.pathname.startsWith('/api/commissions') ||
+                url.pathname.startsWith('/api/invoices'),
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'project-metadata-travel-cache',
+                networkTimeoutSeconds: 3, // 3s fallback if spotty airplane or international hotel WiFi
+                expiration: {
+                  maxEntries: 120,
+                  maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days of offline retention
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            },
+            {
+              // 2. Offline Database Status & Agency Settings Cache
+              urlPattern: ({ url }) =>
+                url.pathname.startsWith('/api/database/status') ||
+                url.pathname.startsWith('/api/agency'),
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'agency-status-travel-cache',
+                expiration: {
+                  maxEntries: 30,
+                  maxAgeSeconds: 60 * 60 * 24 * 3, // 3 days
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            },
+            {
+              // 3. Web Fonts and Static CDN assets
+              urlPattern: ({ url }) =>
+                url.origin.includes('fonts.googleapis.com') ||
+                url.origin.includes('fonts.gstatic.com') ||
+                url.pathname.endsWith('.woff2') ||
+                url.pathname.endsWith('.woff'),
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'typography-travel-cache',
+                expiration: {
+                  maxEntries: 50,
+                  maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            }
+          ]
         },
         devOptions: {
           enabled: false,
@@ -53,7 +115,16 @@ export default defineConfig(() => {
       }),
     ],
     build: {
-      chunkSizeWarningLimit: 2500,
+      chunkSizeWarningLimit: 2000,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom'],
+            'vendor-icons': ['lucide-react'],
+            'vendor-motion': ['motion'],
+          },
+        },
+      },
     },
     resolve: {
       alias: {
@@ -61,11 +132,9 @@ export default defineConfig(() => {
       },
     },
     server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
-      hmr: process.env.DISABLE_HMR !== 'true',
-      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      // HMR is disabled in AI Studio via DISABLE_HMR env var to prevent WebSocket dropouts
+      hmr: isHmrDisabled ? false : true,
+      watch: isHmrDisabled ? null : {},
     },
   };
 });

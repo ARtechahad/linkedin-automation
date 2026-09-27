@@ -33,12 +33,15 @@ import {
   ChevronRight,
   Timer as TimerIcon,
   Play,
-  CalendarRange as TimelineIcon
+  CalendarRange as TimelineIcon,
+  Edit3
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PartnerEvaluationModal } from './PartnerEvaluationModal';
 import { ShareWithPartnerModal } from './ShareWithPartnerModal';
 import { ProjectTimeTrackingModal } from './ProjectTimeTrackingModal';
+import { ProjectQuickEditModal } from './ProjectQuickEditModal';
+import { AutoSaveIndicator } from './AutoSaveIndicator';
 import { ProjectTimelineBar } from './ProjectTimelineBar';
 import { ProjectTimelineFullView } from './ProjectTimelineFullView';
 import { generateDefaultTasksForProject } from '../lib/timeTrackingDefaults';
@@ -71,6 +74,9 @@ export const ProjectsPipeline: React.FC = () => {
   const [isScoringLeads, setIsScoringLeads] = useState<boolean>(false);
   const [evaluatingProject, setEvaluatingProject] = useState<ProjectLead | null>(null);
   const [sharingProject, setSharingProject] = useState<ProjectLead | null>(null);
+  const [editingScopeProject, setEditingScopeProject] = useState<ProjectLead | null>(null);
+  const [pipelineSaveStatus, setPipelineSaveStatus] = useState<'idle' | 'syncing' | 'saved' | 'error'>('saved');
+  const [pipelineLastSaved, setPipelineLastSaved] = useState<Date | null>(new Date());
 
   // Time Tracking Module States
   const [timeTrackingProject, setTimeTrackingProject] = useState<ProjectLead | null>(null);
@@ -301,7 +307,14 @@ export const ProjectsPipeline: React.FC = () => {
 
     setRecentlyMovedId(projectId);
     setTimeout(() => setRecentlyMovedId(null), 1800);
-    await updateProject(projectId, updates);
+    setPipelineSaveStatus('syncing');
+    try {
+      await updateProject(projectId, updates);
+      setPipelineSaveStatus('saved');
+      setPipelineLastSaved(new Date());
+    } catch {
+      setPipelineSaveStatus('error');
+    }
   };
 
   const handleDragStart = (e: React.DragEvent, project: ProjectLead) => {
@@ -518,12 +531,21 @@ export const ProjectsPipeline: React.FC = () => {
             </button>
           </div>
 
+          {/* Debounced Auto-Save Status Indicator */}
+          <div className="hidden lg:flex items-center">
+            <AutoSaveIndicator
+              status={pipelineSaveStatus}
+              lastSavedAt={pipelineLastSaved}
+              size="sm"
+            />
+          </div>
+
           {/* Add New Client Button - Hidden for Collaborator role */}
           {role !== 'collaborator' && (
             <button
               id="btn-pipeline-new-client"
               onClick={() => setIsNewLeadModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition ml-auto sm:ml-0"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition ml-auto sm:ml-0 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>{t('newLead')}</span>
@@ -807,10 +829,28 @@ export const ProjectsPipeline: React.FC = () => {
                                     </div>
                                   </div>
 
-                                  {/* Purpose summary */}
-                                  <p className="text-[11px] text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
-                                    {project.purpose}
-                                  </p>
+                                  {/* Purpose summary with Quick-Edit Trigger */}
+                                  <div
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingScopeProject(project);
+                                    }}
+                                    className="group/desc p-1.5 -mx-1 rounded-lg hover:bg-indigo-50/50 dark:hover:bg-slate-800/60 transition cursor-pointer"
+                                    title="Click to edit project description & scope (2s Debounced Auto-Save)"
+                                  >
+                                    <div className="flex items-center justify-between gap-1 mb-0.5 opacity-70 group-hover/desc:opacity-100">
+                                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                        Scope Description
+                                      </span>
+                                      <span className="flex items-center gap-0.5 text-[9px] text-indigo-500 font-semibold">
+                                        <Edit3 className="w-2.5 h-2.5" />
+                                        <span>Edit</span>
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
+                                      {project.purpose}
+                                    </p>
+                                  </div>
 
                                   {/* Partner Collaboration & Appraisal Status Badge */}
                                   {(project.isDealSheetShared || (project.assignedCollaborators && project.assignedCollaborators.length > 0)) && (
@@ -1350,6 +1390,23 @@ export const ProjectsPipeline: React.FC = () => {
         onClose={() => setTimeTrackingProject(null)}
         initialTab={timeTrackingInitialTab}
         initialTaskId={timeTrackingTaskId}
+      />
+
+      {/* Debounced Project Scope & Description Quick-Edit Modal */}
+      <ProjectQuickEditModal
+        project={editingScopeProject}
+        isOpen={Boolean(editingScopeProject)}
+        onClose={() => setEditingScopeProject(null)}
+        onSaveToBackend={async (id, updates) => {
+          setPipelineSaveStatus('syncing');
+          try {
+            await updateProject(id, updates);
+            setPipelineSaveStatus('saved');
+            setPipelineLastSaved(new Date());
+          } catch {
+            setPipelineSaveStatus('error');
+          }
+        }}
       />
 
     </div>

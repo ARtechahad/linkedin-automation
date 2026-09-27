@@ -125,6 +125,16 @@ export interface ProjectLead {
   timeLogs?: ProjectTimeLog[];
   activeTimer?: ActiveTimerState | null;
 
+  // Google Workspace Deep Integration Fields
+  googleDocUrl?: string;
+  googleDocId?: string;
+  googleTaskListId?: string;
+  googleCalendarEventId?: string;
+  googleMeetingUrl?: string;
+  workspaceNotes?: string;
+  googleTasksSyncedAt?: string;
+  googleCalendarSyncedAt?: string;
+
   createdAt: string;
   updatedAt: string;
 }

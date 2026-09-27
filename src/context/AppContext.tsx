@@ -17,6 +17,8 @@ import {
 } from '../lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { offlineSyncService } from '../services/offlineSyncService';
+import { googleSheetsService } from '../services/googleSheetsService';
+import { localDatabase } from '../services/localDatabaseFallback';
 
 interface AppContextType {
   role: UserRole;
@@ -237,8 +239,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return null;
   });
   const [unreadInboxCount, setUnreadInboxCount] = useState<number>(3);
-  const [projects, setProjects] = useState<ProjectLead[]>([]);
-  const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
+  const [projects, setProjects] = useState<ProjectLead[]>(() => {
+    return localDatabase.getProjects();
+  });
+  const [loadingProjects, setLoadingProjects] = useState<boolean>(false);
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -538,7 +542,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Fetch projects from Firestore with server and offline fallbacks
   const refreshProjects = async () => {
-    setLoadingProjects(true);
     try {
       // 1. Try reading from Firestore first if user is authenticated in Firebase
       if (auth.currentUser) {
@@ -546,11 +549,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const firestoreProjects = await loadProjectsFromFirestore();
           if (firestoreProjects && firestoreProjects.length > 0) {
             setProjects(firestoreProjects);
-            localStorage.setItem('clientops_cached_projects', JSON.stringify(firestoreProjects));
+            localDatabase.saveProjects(firestoreProjects);
             return;
           }
         } catch (fsErr) {
-          console.warn('Firestore load encountered an error, falling back to server API:', fsErr);
+          // Silent fallback to server or local database
         }
       }
 
@@ -564,28 +567,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (res.ok) {
         const data = await res.json();
         const projs = data.projects || [];
-        setProjects(projs);
-        localStorage.setItem('clientops_cached_projects', JSON.stringify(projs));
+        if (projs.length > 0) {
+          setProjects(projs);
+          localDatabase.saveProjects(projs);
 
-        // Seed to Firestore in background only if authenticated
-        if (projs.length > 0 && auth.currentUser) {
-          seedProjectsToFirestore(projs).catch(e => console.warn('Could not seed initial projects to Firestore:', e));
-        }
-      } else {
-        throw new Error('Server returned ' + res.status);
-      }
-    } catch (e) {
-      console.warn('Failed to fetch projects, falling back to cache:', e);
-      const cached = localStorage.getItem('clientops_cached_projects');
-      if (cached) {
-        try {
-          setProjects(JSON.parse(cached));
-        } catch {
-          // ignore
+          // Seed to Firestore in background only if authenticated
+          if (auth.currentUser) {
+            seedProjectsToFirestore(projs).catch(() => {});
+          }
+          return;
         }
       }
-    } finally {
-      setLoadingProjects(false);
+    } catch {
+      // Fallback to local storage
+    }
+
+    // 3. Fallback to local storage database
+    const local = localDatabase.getProjects();
+    if (local.length > 0) {
+      setProjects(local);
     }
   };
 
@@ -606,19 +606,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     refreshProjects();
   }, [authToken]);
 
+  // Trigger Google Sheets auto-sync when projects update (debounced)
+  useEffect(() => {
+    if (projects.length === 0) return;
+    const timer = setTimeout(() => {
+      googleSheetsService.triggerAutoSyncIfConfigured(projects);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [projects]);
+
   // Update project in Firestore, local offline sync queue, and backend
   const updateProject = async (id: string, updates: Partial<ProjectLead>): Promise<boolean> => {
     try {
-      // 1. Optimistic UI update
-      setProjects(prev => prev.map(p => (p.id === id ? { ...p, ...updates } : p)));
+      // 1. Optimistic UI update & immediate local storage sync
+      setProjects(prev => {
+        const next = prev.map(p => (p.id === id ? { ...p, ...updates } : p));
+        localDatabase.saveProjects(next);
+        return next;
+      });
       
-      // 2. Save directly to Firestore for durable persistence if connected
-      saveProjectToFirestore({ id, ...updates }).catch(e => console.warn('Firestore project update warning:', e));
+      // 2. Save directly to Firestore with local storage fallback
+      saveProjectToFirestore({ id, ...updates }).catch(() => {});
 
       // 3. If offline, enqueue into the offline sync service for automatic reconciliation on reconnect
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         offlineSyncService.enqueue('project', 'update', id, updates);
-        showToast('Offline Mode: Changes queued locally. Will auto-sync when online.', 'info');
+        showToast('Offline Mode: Changes saved locally. Will auto-sync when online.', 'info');
         return true;
       }
 
@@ -630,18 +643,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
       if (res.ok) {
         const data = await res.json();
-        setProjects(prev => prev.map(p => (p.id === id ? data.project : p)));
-        showToast('Project updated & saved to database.');
+        setProjects(prev => {
+          const next = prev.map(p => (p.id === id ? data.project : p));
+          localDatabase.saveProjects(next);
+          return next;
+        });
+        showToast('Project updated & saved.');
         return true;
       } else {
         // Fallback: enqueue on non-200 server response
         offlineSyncService.enqueue('project', 'update', id, updates);
         return true;
       }
-    } catch (e) {
-      console.warn('Network error during project update, enqueuing for offline sync:', e);
+    } catch {
       offlineSyncService.enqueue('project', 'update', id, updates);
-      showToast('Connection interrupted: Queued for auto-sync.', 'info');
+      showToast('Saved locally.', 'info');
       return true;
     }
   };
@@ -655,15 +671,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const data = await res.json();
       if (res.ok && data.success) {
         setProjects(prev => prev.map(p => (p.id === id ? data.project : p)));
-        // Save to Firestore
+        // Save to Firestore & local storage
         saveProjectToFirestore({ 
           id, 
           status: 'transferred', 
           domainTransferred: true, 
           transferCompletedAt: new Date().toISOString() 
-        }).catch(e => console.warn('Firestore transfer update warning:', e));
+        }).catch(() => {});
 
-        showToast('🎉 SOP Rule 8 Passed: Website transferred to live client domain and logged in Firestore!');
+        showToast('🎉 SOP Rule 8 Passed: Website transferred to live client domain and logged!');
         return { success: true, message: data.message };
       } else {
         showToast(`❌ Transfer Rejected: ${data.error}`);

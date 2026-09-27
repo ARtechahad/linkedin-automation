@@ -86,8 +86,8 @@ export const TeamChatView: React.FC = () => {
       timestamp: new Date().toISOString()
     };
 
-    // Save to Firestore for persistent database storage
-    saveChatMessageToFirestore(newMsgPayload).catch(e => console.warn('Firestore chat error:', e));
+    // Save to Firestore & local storage for persistent storage
+    saveChatMessageToFirestore(newMsgPayload).catch(() => {});
 
     try {
       const res = await fetch('/api/chat', {

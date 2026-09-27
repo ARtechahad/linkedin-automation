@@ -25,11 +25,17 @@ import {
   Copy,
   Check,
   Key,
-  Shield
+  Shield,
+  FileSpreadsheet,
+  CheckSquare,
+  Calendar,
+  FileText
 } from 'lucide-react';
 import { IntegrationConnector, WebhookEventLog, IntegrationChannel } from '../types';
 import { ApiTokenManagementSection } from './ApiTokenManagementSection';
 import { AuditTrailAdminSection } from './AuditTrailAdminSection';
+import { GoogleSheetsSyncModal } from './GoogleSheetsSyncModal';
+import { GoogleWorkspaceModal } from './GoogleWorkspaceModal';
 
 export const IntegrationsView: React.FC = () => {
   const { showToast, formatMoney, refreshProjects, setActiveTab } = useApp();
@@ -39,6 +45,8 @@ export const IntegrationsView: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [syncingAll, setSyncingAll] = useState<boolean>(false);
   const [activeTab, setActiveSubTab] = useState<'connectors' | 'api_tokens' | 'audit_trail' | 'simulator' | 'logs' | 'endpoints'>('connectors');
+  const [isSheetsModalOpen, setIsSheetsModalOpen] = useState<boolean>(false);
+  const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState<boolean>(false);
 
   // Live Production Credentials State
   const [stripeSecretKey, setStripeSecretKey] = useState<string>('');
@@ -374,6 +382,78 @@ export const IntegrationsView: React.FC = () => {
                 className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
               >
                 <span>Launch Gmail</span>
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Google Workspace Deep Integration Suite (Sheets, Tasks, Calendar, Docs) */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border-2 border-indigo-500/30 dark:border-indigo-500/40 shadow-sm flex flex-col justify-between hover:border-indigo-500 transition-all group">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <span className="px-2.5 py-1 rounded-xl text-xs font-bold uppercase tracking-wider border bg-gradient-to-r from-emerald-50 to-indigo-50 dark:from-emerald-950/60 dark:to-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>GOOGLE WORKSPACE SUITE</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Unified OAuth 2.0</span>
+                  </span>
+                </div>
+              </div>
+
+              <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1.5 flex items-center gap-2">
+                <span>Google Sheets, Tasks, Calendar &amp; Docs</span>
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
+                Centralized cloud synchronization: Google Sheets pipeline backups, Google Tasks SOP Steps 1-11 gateways, Google Calendar deadlines, and Google Docs contract generation.
+              </p>
+
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300">
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                  <div>
+                    <strong className="block text-[11px] text-white">Google Sheets</strong>
+                    <span className="text-[10px] text-slate-400">Pipeline &amp; SOP Audit Log</span>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300">
+                  <CheckSquare className="w-4 h-4 text-indigo-500 mt-0.5 shrink-0" />
+                  <div>
+                    <strong className="block text-[11px] text-white">Google Tasks</strong>
+                    <span className="text-[10px] text-slate-400">SOP Steps 1-11 Gateways</span>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300">
+                  <Calendar className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                  <div>
+                    <strong className="block text-[11px] text-white">Google Calendar</strong>
+                    <span className="text-[10px] text-slate-400">Discovery Calls &amp; Deadlines</span>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300">
+                  <FileText className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                  <div>
+                    <strong className="block text-[11px] text-white">Google Docs</strong>
+                    <span className="text-[10px] text-slate-400">Proposals &amp; Briefs</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-[11px] font-mono text-slate-400">
+                Sheets + Tasks + Calendar + Docs
+              </span>
+              <button
+                onClick={() => setIsWorkspaceModalOpen(true)}
+                className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>Launch Workspace Hub</span>
                 <ArrowUpRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -898,6 +978,18 @@ export const IntegrationsView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Google Sheets Real-Time Sync & Bulk Import Modal */}
+      <GoogleSheetsSyncModal
+        isOpen={isSheetsModalOpen}
+        onClose={() => setIsSheetsModalOpen(false)}
+      />
+
+      {/* Google Workspace Deep Integration Hub (Sheets, Tasks, Calendar, Docs) */}
+      <GoogleWorkspaceModal
+        isOpen={isWorkspaceModalOpen}
+        onClose={() => setIsWorkspaceModalOpen(false)}
+      />
     </div>
   );
 };

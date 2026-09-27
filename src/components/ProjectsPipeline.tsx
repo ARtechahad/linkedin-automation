@@ -34,13 +34,20 @@ import {
   Timer as TimerIcon,
   Play,
   CalendarRange as TimelineIcon,
-  Edit3
+  Edit3,
+  FileSpreadsheet,
+  CheckSquare,
+  Calendar,
+  FileText,
+  Layers
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PartnerEvaluationModal } from './PartnerEvaluationModal';
 import { ShareWithPartnerModal } from './ShareWithPartnerModal';
 import { ProjectTimeTrackingModal } from './ProjectTimeTrackingModal';
 import { ProjectQuickEditModal } from './ProjectQuickEditModal';
+import { GoogleSheetsSyncModal } from './GoogleSheetsSyncModal';
+import { GoogleWorkspaceModal } from './GoogleWorkspaceModal';
 import { AutoSaveIndicator } from './AutoSaveIndicator';
 import { ProjectTimelineBar } from './ProjectTimelineBar';
 import { ProjectTimelineFullView } from './ProjectTimelineFullView';
@@ -75,6 +82,10 @@ export const ProjectsPipeline: React.FC = () => {
   const [evaluatingProject, setEvaluatingProject] = useState<ProjectLead | null>(null);
   const [sharingProject, setSharingProject] = useState<ProjectLead | null>(null);
   const [editingScopeProject, setEditingScopeProject] = useState<ProjectLead | null>(null);
+  const [isSheetsModalOpen, setIsSheetsModalOpen] = useState<boolean>(false);
+  const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState<boolean>(false);
+  const [workspaceModalTab, setWorkspaceModalTab] = useState<'sheets' | 'tasks' | 'calendar' | 'docs'>('sheets');
+  const [selectedWorkspaceProject, setSelectedWorkspaceProject] = useState<ProjectLead | null>(null);
   const [pipelineSaveStatus, setPipelineSaveStatus] = useState<'idle' | 'syncing' | 'saved' | 'error'>('saved');
   const [pipelineLastSaved, setPipelineLastSaved] = useState<Date | null>(new Date());
 
@@ -539,6 +550,22 @@ export const ProjectsPipeline: React.FC = () => {
               size="sm"
             />
           </div>
+
+          {/* Google Workspace Suite (Sheets, Tasks, Calendar, Docs) */}
+          {role !== 'collaborator' && (
+            <button
+              onClick={() => {
+                setSelectedWorkspaceProject(projects[0] || null);
+                setWorkspaceModalTab('sheets');
+                setIsWorkspaceModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white shadow-xs transition cursor-pointer border border-white/10"
+              title="Google Workspace Suite: Sheets, Tasks, Calendar & Docs"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Google Workspace</span>
+            </button>
+          )}
 
           {/* Add New Client Button - Hidden for Collaborator role */}
           {role !== 'collaborator' && (
@@ -1073,6 +1100,72 @@ export const ProjectsPipeline: React.FC = () => {
                                     </div>
                                   )}
 
+                                  {/* Google Workspace One-Click Shortcut Bar */}
+                                  <div className="flex items-center justify-between p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-white/5 text-[10px]">
+                                    <div className="flex items-center gap-1 text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                      <Layers className="w-2.5 h-2.5 text-indigo-500" />
+                                      <span>Workspace</span>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedWorkspaceProject(project);
+                                          setWorkspaceModalTab('sheets');
+                                          setIsWorkspaceModalOpen(true);
+                                        }}
+                                        className="p-1 rounded-md hover:bg-emerald-100 dark:hover:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 transition cursor-pointer"
+                                        title="Google Sheets: Live Lead & Milestone Sync"
+                                      >
+                                        <FileSpreadsheet className="w-3 h-3" />
+                                      </button>
+
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedWorkspaceProject(project);
+                                          setWorkspaceModalTab('tasks');
+                                          setIsWorkspaceModalOpen(true);
+                                        }}
+                                        className="p-1 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 transition cursor-pointer"
+                                        title="Google Tasks: Sync SOP Steps 1-11 Tasks"
+                                      >
+                                        <CheckSquare className="w-3 h-3" />
+                                      </button>
+
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedWorkspaceProject(project);
+                                          setWorkspaceModalTab('calendar');
+                                          setIsWorkspaceModalOpen(true);
+                                        }}
+                                        className="p-1 rounded-md hover:bg-amber-100 dark:hover:bg-amber-950/60 text-amber-600 dark:text-amber-400 transition cursor-pointer"
+                                        title="Google Calendar: Schedule Meetings & Payment Deadlines"
+                                      >
+                                        <Calendar className="w-3 h-3" />
+                                      </button>
+
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedWorkspaceProject(project);
+                                          setWorkspaceModalTab('docs');
+                                          setIsWorkspaceModalOpen(true);
+                                        }}
+                                        className={`p-1 rounded-md transition cursor-pointer ${
+                                          project.googleDocUrl
+                                            ? 'bg-blue-500/20 text-blue-400 font-bold'
+                                            : 'hover:bg-blue-100 dark:hover:bg-blue-950/60 text-blue-600 dark:text-blue-400'
+                                        }`}
+                                        title={project.googleDocUrl ? "Google Docs: Proposal Active (Click to View/Edit)" : "Google Docs: Generate Contract / Proposal"}
+                                      >
+                                        <FileText className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+
                                   {/* Bottom Quick Tools: Discord Export + AI Outreach + Portal + AI Assistant */}
                                   <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800 text-[11px] gap-1">
                                     <button
@@ -1407,6 +1500,20 @@ export const ProjectsPipeline: React.FC = () => {
             setPipelineSaveStatus('error');
           }
         }}
+      />
+
+      {/* Google Sheets Real-Time Sync & Bulk Import Modal */}
+      <GoogleSheetsSyncModal
+        isOpen={isSheetsModalOpen}
+        onClose={() => setIsSheetsModalOpen(false)}
+      />
+
+      {/* Google Workspace Deep Integration Suite (Sheets, Tasks, Calendar, Docs) */}
+      <GoogleWorkspaceModal
+        isOpen={isWorkspaceModalOpen}
+        onClose={() => setIsWorkspaceModalOpen(false)}
+        activeProject={selectedWorkspaceProject}
+        initialTab={workspaceModalTab}
       />
 
     </div>

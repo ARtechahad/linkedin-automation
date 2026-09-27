@@ -1,0 +1,10 @@
+{
+  "name": "International Client Handling & Project Operations Suite",
+  "description": "Standard operating procedure and management platform for web development sales and coordination teams handling international clients, featuring lead pipeline, commission calculator, task boards, secure files, and team collaboration.",
+  "requestFramePermissions": [
+    "notifications"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

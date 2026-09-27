@@ -1,0 +1,32 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to verify user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Projects pipeline & leads
+    match /projects/{projectId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // User preferences and state
+    match /userData/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Internal team chat messages
+    match /chatMessages/{messageId} {
+      allow read, create: if isSignedIn();
+      allow update, delete: if isSignedIn() && request.auth.uid == resource.data.senderId;
+    }
+  }
+}

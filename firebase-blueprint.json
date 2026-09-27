@@ -1,23 +1,32 @@
 {
   "entities": {
     "User": {
-      "fields": {
-        "email": { "type": "string" },
-        "displayName": { "type": "string" },
-        "photoURL": { "type": "string" },
-        "role": { "type": "string" },
+      "title": "User",
+      "description": "User profile synchronized from Firebase Authentication",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "displayName": { "type": "string", "maxLength": 128 },
+        "photoURL": { "type": "string", "maxLength": 1024 },
+        "role": { "type": "string", "maxLength": 64 },
         "createdAt": { "type": "string" },
         "lastLoginAt": { "type": "string" }
-      }
+      },
+      "required": ["uid"]
     },
     "Project": {
-      "fields": {
-        "clientName": { "type": "string" },
-        "clientEmail": { "type": "string" },
-        "channel": { "type": "string" },
-        "websiteType": { "type": "string" },
-        "purpose": { "type": "string" },
-        "status": { "type": "string" },
+      "title": "Project",
+      "description": "Project lead and active development milestone tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "clientName": { "type": "string", "maxLength": 128 },
+        "clientEmail": { "type": "string", "maxLength": 256 },
+        "channel": { "type": "string", "maxLength": 64 },
+        "websiteType": { "type": "string", "maxLength": 64 },
+        "purpose": { "type": "string", "maxLength": 1024 },
+        "status": { "type": "string", "maxLength": 64 },
         "estimatedPrice": { "type": "number" },
         "finalPrice": { "type": "number" },
         "advancePaid": { "type": "boolean" },
@@ -25,31 +34,57 @@
         "balancePaid": { "type": "boolean" },
         "balanceAmount": { "type": "number" },
         "domainTransferred": { "type": "boolean" },
-        "ownerId": { "type": "string" },
+        "ownerId": { "type": "string", "maxLength": 128 },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
-      }
+      },
+      "required": ["id", "clientName"]
     },
     "UserData": {
-      "fields": {
-        "userId": { "type": "string" },
-        "theme": { "type": "string" },
-        "language": { "type": "string" },
-        "currency": { "type": "string" },
-        "scaleMode": { "type": "string" },
+      "title": "UserData",
+      "description": "User preferences and operational configuration",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "theme": { "type": "string", "maxLength": 16 },
+        "language": { "type": "string", "maxLength": 16 },
+        "currency": { "type": "string", "maxLength": 16 },
+        "scaleMode": { "type": "string", "maxLength": 32 },
         "updatedAt": { "type": "string" }
-      }
+      },
+      "required": ["userId"]
     },
     "ChatMessage": {
-      "fields": {
-        "senderId": { "type": "string" },
-        "senderName": { "type": "string" },
-        "senderRole": { "type": "string" },
-        "channel": { "type": "string" },
-        "content": { "type": "string" },
+      "title": "ChatMessage",
+      "description": "Internal team collaboration and channel communication",
+      "type": "object",
+      "properties": {
+        "channel": { "type": "string", "maxLength": 64 },
+        "sender": { "type": "string", "maxLength": 128 },
+        "senderId": { "type": "string", "maxLength": 128 },
+        "role": { "type": "string", "maxLength": 64 },
+        "text": { "type": "string", "maxLength": 4096 },
         "timestamp": { "type": "string" }
-      }
+      },
+      "required": ["channel", "sender", "text"]
     }
   },
-  "firestoreRules": "rules_version = '2';\n\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    function isSignedIn() {\n      return request.auth != null;\n    }\n    \n    match /users/{userId} {\n      allow read: if isSignedIn();\n      allow write: if isSignedIn() && request.auth.uid == userId;\n    }\n    \n    match /projects/{projectId} {\n      allow read, write: if isSignedIn();\n    }\n    \n    match /userData/{userId} {\n      allow read, write: if isSignedIn() && request.auth.uid == userId;\n    }\n    \n    match /chatMessages/{messageId} {\n      allow read, create: if isSignedIn();\n      allow update, delete: if isSignedIn() && request.auth.uid == resource.data.senderId;\n    }\n  }\n}"
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile records indexed by Firebase Auth UID"
+    },
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Project leads and operational milestone tracking"
+    },
+    "/userData/{userId}": {
+      "schema": "UserData",
+      "description": "Personalized user interface and locale preferences"
+    },
+    "/chatMessages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Collaborative internal team chat messages"
+    }
+  }
 }

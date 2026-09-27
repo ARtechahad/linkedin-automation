@@ -22,6 +22,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { UserRole } from '../types';
 import { GoogleSignInButton } from './GoogleSignInButton';
+import { ThemeToggle } from './ThemeToggle';
 
 interface RoleLoginViewProps {
   onSuccess?: () => void;
@@ -208,15 +209,8 @@ export const RoleLoginView: React.FC<RoleLoginViewProps> = ({ onSuccess }) => {
           </div>
         </div>
 
-        {/* Light / Dark Mode Toggle */}
-        <button
-          type="button"
-          onClick={() => setIsDark(!isDark)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer shadow-xs"
-        >
-          {isDark ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5 text-indigo-500" />}
-          <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>
-        </button>
+        {/* Real Light / Dark / System Mode Toggle */}
+        <ThemeToggle variant="segmented" showLabels={true} />
       </div>
 
       {/* Main Container Card */}

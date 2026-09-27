@@ -230,6 +230,8 @@ export interface GDPRConsentState {
 
 export type SupportedLanguage = 'en' | 'ur' | 'es' | 'ar' | 'fr' | 'de';
 
+export type ThemeMode = 'light' | 'dark' | 'system';
+
 // ========================================================
 // Phase 1: Automated Lead Generation & Outreach (Agent-Reach)
 // ========================================================

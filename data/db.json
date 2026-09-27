@@ -492,10 +492,90 @@
     "autoInject": false,
     "minBudget": 250,
     "isScanningActive": true,
-    "lastScanTime": "2026-09-17T12:50:26.706Z",
+    "lastScanTime": "2026-09-27T06:20:55.816Z",
     "scanIntervalMinutes": 15
   },
   "scrapedLeads": [
+    {
+      "id": "scrape-1790490055816-4",
+      "platform": "freelancer",
+      "title": "Medical Clinic Website Redesign & Booking System Integration",
+      "authorName": "Dr. Sarah Jenkins",
+      "authorTitle": "Medical Director",
+      "companyName": "Harborview Wellness Clinic",
+      "postSnippet": "We need an experienced web developer to redesign our legacy website. Must feature patient intake booking, doctor profiles, and HIPAA-compliant inquiry forms.",
+      "matchedKeyword": "WordPress redesign",
+      "estimatedBudget": 950,
+      "detectedWebsiteType": "corporate",
+      "matchScore": 95,
+      "url": "https://freelancer.com/projects/web-development/medical-clinic-redesign-39012",
+      "scrapedAt": "2026-09-27T06:20:55.816Z",
+      "injectedToPipeline": false
+    },
+    {
+      "id": "scrape-1790490055816-3",
+      "platform": "upwork",
+      "title": "Shopify Store Customization & Speed Optimization Expert Needed",
+      "authorName": "Christopher Brand",
+      "authorTitle": "E-commerce Director",
+      "companyName": "PureBotanics Wellness UK",
+      "postSnippet": "Looking for an expert to handle our Shopify e-commerce store setup and custom liquid templates. Must integrate automated inventory sync and PayPal/Klarna payments.",
+      "matchedKeyword": "Shopify expert",
+      "estimatedBudget": 620,
+      "detectedWebsiteType": "ecommerce",
+      "matchScore": 94,
+      "url": "https://upwork.com/jobs/~01d8919a009bc7144",
+      "scrapedAt": "2026-09-27T06:20:55.816Z",
+      "injectedToPipeline": false
+    },
+    {
+      "id": "scrape-1790490055816-2",
+      "platform": "twitter",
+      "title": "Hiring a web developer for a high-converting Fintech Landing Page",
+      "authorName": "Maya Chen",
+      "authorTitle": "Co-founder & Head of Product",
+      "companyName": "Zenith Vault Inc.",
+      "postSnippet": "Looking for an experienced web developer to design a dark-mode Fintech landing page. Fast animations, high conversion, mobile responsive. DM your portfolio and rates!",
+      "matchedKeyword": "landing page",
+      "estimatedBudget": 450,
+      "detectedWebsiteType": "landing",
+      "matchScore": 96,
+      "url": "https://twitter.com/maya_zenith/status/1799201928371",
+      "scrapedAt": "2026-09-27T06:20:55.816Z",
+      "injectedToPipeline": false
+    },
+    {
+      "id": "scrape-1790490055816-1",
+      "platform": "upwork",
+      "title": "Complete E-commerce Store Setup with Multi-Currency & Stripe",
+      "authorName": "Julian Moreau",
+      "authorTitle": "Managing Director",
+      "companyName": "Atelier Moreau Paris",
+      "postSnippet": "Need complete e-commerce store setup for high-end boutique apparel. Product catalog, cart abandonment triggers, multi-currency checkout, and domain SSL configuration required.",
+      "matchedKeyword": "e-commerce store setup",
+      "estimatedBudget": 700,
+      "detectedWebsiteType": "ecommerce",
+      "matchScore": 93,
+      "url": "https://upwork.com/jobs/~01f8992b4912cc908",
+      "scrapedAt": "2026-09-27T06:20:55.816Z",
+      "injectedToPipeline": false
+    },
+    {
+      "id": "scrape-1790490055815-0",
+      "platform": "linkedin",
+      "title": "Looking for a Senior Web Developer to revamp B2B SaaS website",
+      "authorName": "Evelyn Reed",
+      "authorTitle": "Chief Commercial Officer",
+      "companyName": "DataSphere Analytics (Austin, TX)",
+      "postSnippet": "Web developer needed ASAP to build a 6-page responsive site with interactive ROI calculator and clean modern layout. Seeking an agency or full-stack dev with fast turnaround.",
+      "matchedKeyword": "web developer needed",
+      "estimatedBudget": 850,
+      "detectedWebsiteType": "corporate",
+      "matchScore": 94,
+      "url": "https://linkedin.com/feed/update/urn:li:activity:72109823401923",
+      "scrapedAt": "2026-09-27T06:20:55.816Z",
+      "injectedToPipeline": false
+    },
     {
       "id": "scrape-1",
       "platform": "linkedin",
@@ -1324,6 +1404,81 @@
     }
   ],
   "auditLogs": [
+    {
+      "id": "audit-1790488742396-3befd8",
+      "userId": "anonymous",
+      "userName": "partner@vance-capital.com",
+      "userRole": "unknown",
+      "action": "AUTH_LOGIN_FAILURE",
+      "entityType": "auth",
+      "entityId": "partner@vance-capital.com",
+      "details": {
+        "attemptedIdentifier": "partner@vance-capital.com",
+        "reason": "User account or role not found"
+      },
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-09-27T05:59:02.396Z"
+    },
+    {
+      "id": "audit-1790488740957-0b6655",
+      "userId": "anonymous",
+      "userName": "partner@vance-capital.com",
+      "userRole": "unknown",
+      "action": "AUTH_LOGIN_FAILURE",
+      "entityType": "auth",
+      "entityId": "partner@vance-capital.com",
+      "details": {
+        "attemptedIdentifier": "partner@vance-capital.com",
+        "reason": "User account or role not found"
+      },
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-09-27T05:59:00.957Z"
+    },
+    {
+      "id": "audit-1790488738811-bd0ce1",
+      "userId": "anonymous",
+      "userName": "partner@vance-capital.com",
+      "userRole": "unknown",
+      "action": "AUTH_LOGIN_FAILURE",
+      "entityType": "auth",
+      "entityId": "partner@vance-capital.com",
+      "details": {
+        "attemptedIdentifier": "partner@vance-capital.com",
+        "reason": "User account or role not found"
+      },
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-09-27T05:58:58.811Z"
+    },
+    {
+      "id": "audit-1790488737499-81ea60",
+      "userId": "anonymous",
+      "userName": "partner@vance-capital.com",
+      "userRole": "unknown",
+      "action": "AUTH_LOGIN_FAILURE",
+      "entityType": "auth",
+      "entityId": "partner@vance-capital.com",
+      "details": {
+        "attemptedIdentifier": "partner@vance-capital.com",
+        "reason": "User account or role not found"
+      },
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-09-27T05:58:57.500Z"
+    },
+    {
+      "id": "audit-1790488264551-93d434",
+      "userId": "user-sales-1",
+      "userName": "Hamza Farooq",
+      "userRole": "sales",
+      "action": "AUTH_LOGIN_SUCCESS",
+      "entityType": "user",
+      "entityId": "user-sales-1",
+      "details": {
+        "email": "sales@agencyops.dev",
+        "role": "sales"
+      },
+      "ipAddress": "127.0.0.1",
+      "createdAt": "2026-09-27T05:51:04.552Z"
+    },
     {
       "id": "audit-1789758345829-840ced",
       "userId": "anonymous",

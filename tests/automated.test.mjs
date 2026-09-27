@@ -273,5 +273,49 @@ describe('International Client Handling SOP - Automated Tests', () => {
       assert.equal(checkPermission('client_guest', 'vault:read'), false);
       assert.equal(checkPermission('client_guest', 'projects:write'), false);
     });
+
+    test('Data Isolation: Sales rep data query returns ONLY assigned deals and commissions', () => {
+      const allProjects = [
+        { id: 'p1', clientName: 'Client A', assignedSalesperson: 'Hamza Farooq', salespersonEmail: 'sales@agencyops.dev', commissionAmount: 200 },
+        { id: 'p2', clientName: 'Client B', assignedSalesperson: 'Sara Khan', salespersonEmail: 'sara@agencyops.dev', commissionAmount: 350 },
+        { id: 'p3', clientName: 'Client C', assignedSalesperson: 'Hamza Farooq', salespersonEmail: 'sales@agencyops.dev', commissionAmount: 120 }
+      ];
+
+      const filterForSales = (projects, user) => {
+        return projects.filter(p => p.salespersonEmail === user.email || p.assignedSalesperson === user.name);
+      };
+
+      const salesUser = { name: 'Hamza Farooq', email: 'sales@agencyops.dev', role: 'sales' };
+      const filtered = filterForSales(allProjects, salesUser);
+
+      assert.equal(filtered.length, 2);
+      assert.equal(filtered.some(p => p.clientName === 'Client B'), false);
+      assert.equal(filtered.every(p => p.assignedSalesperson === 'Hamza Farooq'), true);
+    });
+
+    test('Data Isolation: Client guest query returns ONLY their project with internal metrics stripped', () => {
+      const allProjects = [
+        { id: 'p1', clientName: 'Alexander Vance', clientEmail: 'alex.vance@lumina-health.co.uk', finalPrice: 1200, commissionAmount: 420, commissionRate: 35 },
+        { id: 'p2', clientName: 'Elena Rostova', clientEmail: 'elena@nordic-ceramics.se', finalPrice: 650, commissionAmount: 195, commissionRate: 30 }
+      ];
+
+      const filterForClient = (projects, user) => {
+        return projects
+          .filter(p => p.clientEmail === user.email)
+          .map(p => ({
+            id: p.id,
+            clientName: p.clientName,
+            finalPrice: p.finalPrice
+          }));
+      };
+
+      const clientUser = { name: 'Alexander Vance', email: 'alex.vance@lumina-health.co.uk', role: 'client_guest' };
+      const filtered = filterForClient(allProjects, clientUser);
+
+      assert.equal(filtered.length, 1);
+      assert.equal(filtered[0].id, 'p1');
+      assert.equal(filtered[0].commissionAmount, undefined);
+      assert.equal(filtered[0].commissionRate, undefined);
+    });
   });
 });

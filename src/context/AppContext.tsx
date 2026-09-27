@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { ProjectLead, UserRole, SupportedLanguage, AutomatedTestResult, SupportedCurrency, AgencyScaleMode, AISettings, AuthUser, DatabaseEngineStatus } from '../types';
+import { ProjectLead, UserRole, SupportedLanguage, AutomatedTestResult, SupportedCurrency, AgencyScaleMode, AISettings, AuthUser, DatabaseEngineStatus, ThemeMode } from '../types';
 import { TRANSLATIONS } from '../data/translations';
 import { getSavedAISettings, saveAISettings } from '../services/aiService';
 import { ToastItem, ToastType } from '../components/ToastNotification';
@@ -38,8 +38,11 @@ interface AppContextType {
   language: SupportedLanguage;
   setLanguage: (lang: SupportedLanguage) => void;
   t: (key: string) => string;
+  themeMode: ThemeMode;
+  setThemeMode: (mode: ThemeMode) => void;
   isDark: boolean;
   setIsDark: (dark: boolean) => void;
+  toggleTheme: () => void;
   activeTab: 'sop' | 'pipeline' | 'outreach' | 'inbox' | 'analytics' | 'integrations' | 'commissions' | 'chat' | 'vault' | 'portal' | 'free_apis' | 'gmail';
   setActiveTab: (tab: 'sop' | 'pipeline' | 'outreach' | 'inbox' | 'analytics' | 'integrations' | 'commissions' | 'chat' | 'vault' | 'portal' | 'free_apis' | 'gmail') => void;
   activePortalProjectId: string | null;
@@ -128,29 +131,81 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [language, setLanguage] = useState<SupportedLanguage>('en');
   const [currency, setCurrency] = useState<SupportedCurrency>('USD');
   const [scaleMode, setScaleModeState] = useState<AgencyScaleMode>('enterprise');
-  const [isDark, setIsDark] = useState<boolean>(() => {
+
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('clientops_theme');
-      if (saved === 'dark') return true;
-      if (saved === 'light') return false;
-      // Default to system preference if no manual override is saved
-      return window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)').matches : false;
+      const savedMode = localStorage.getItem('clientops_theme_mode') as ThemeMode;
+      if (savedMode && ['light', 'dark', 'system'].includes(savedMode)) {
+        return savedMode;
+      }
+      const legacy = localStorage.getItem('clientops_theme');
+      if (legacy === 'light' || legacy === 'dark') {
+        return legacy as ThemeMode;
+      }
+    }
+    return 'dark';
+  });
+
+  const [systemPrefersDark, setSystemPrefersDark] = useState<boolean>(() => {
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
     return false;
   });
 
+  // Listen to system OS theme changes
   useEffect(() => {
-    if (typeof document !== 'undefined') {
-      if (isDark) {
-        document.documentElement.classList.add('dark');
-        document.documentElement.classList.remove('light');
-      } else {
-        document.documentElement.classList.remove('dark');
-        document.documentElement.classList.add('light');
-      }
-      localStorage.setItem('clientops_theme', isDark ? 'dark' : 'light');
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      setSystemPrefersDark(e.matches);
+    };
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    } else {
+      mediaQuery.addListener(handleChange);
+      return () => mediaQuery.removeListener(handleChange);
     }
-  }, [isDark]);
+  }, []);
+
+  const isDark = themeMode === 'system' ? systemPrefersDark : themeMode === 'dark';
+
+  // Apply real theme classes and attributes to HTML document
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const root = document.documentElement;
+    if (isDark) {
+      root.classList.add('dark');
+      root.classList.remove('light');
+      root.setAttribute('data-theme', 'dark');
+      root.style.colorScheme = 'dark';
+    } else {
+      root.classList.remove('dark');
+      root.classList.add('light');
+      root.setAttribute('data-theme', 'light');
+      root.style.colorScheme = 'light';
+    }
+    localStorage.setItem('clientops_theme_mode', themeMode);
+    localStorage.setItem('clientops_theme', isDark ? 'dark' : 'light');
+
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor) {
+      metaThemeColor.setAttribute('content', isDark ? '#070a12' : '#ffffff');
+    }
+  }, [isDark, themeMode]);
+
+  const setThemeMode = (mode: ThemeMode) => {
+    setThemeModeState(mode);
+  };
+
+  const setIsDark = (dark: boolean) => {
+    setThemeModeState(dark ? 'dark' : 'light');
+  };
+
+  const toggleTheme = () => {
+    setThemeModeState(isDark ? 'light' : 'dark');
+  };
 
   const [activeTab, setActiveTabState] = useState<'sop' | 'pipeline' | 'outreach' | 'inbox' | 'analytics' | 'integrations' | 'commissions' | 'chat' | 'vault' | 'portal' | 'free_apis' | 'gmail'>(() => {
     if (typeof window !== 'undefined') {
@@ -278,10 +333,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           // Load user preferences from Firestore if available
           const prefs = await getUserPreferences(fbUser.uid);
           if (prefs) {
-            if (prefs.theme) setIsDark(prefs.theme === 'dark');
+            if (prefs.theme && ['light', 'dark', 'system'].includes(prefs.theme)) {
+              setThemeModeState(prefs.theme as ThemeMode);
+            }
             if (prefs.currency) setCurrency(prefs.currency as SupportedCurrency);
             if (prefs.language) setLanguage(prefs.language as SupportedLanguage);
           }
+
+          // Trigger projects refresh with authenticated Firebase session
+          refreshProjects();
         } catch (err) {
           console.warn('Error syncing Firebase user profile:', err);
         }
@@ -300,13 +360,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     if (auth.currentUser) {
       saveUserPreferences(auth.currentUser.uid, {
-        theme: isDark ? 'dark' : 'light',
+        theme: themeMode,
         language,
         currency,
         scaleMode
       }).catch(err => console.warn('Could not persist preferences to Firestore:', err));
     }
-  }, [isDark, language, currency, scaleMode]);
+  }, [themeMode, language, currency, scaleMode]);
 
   const setRole = (newRole: UserRole) => {
     setRoleState(newRole);
@@ -475,30 +535,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
   }, []);
 
-  // Sync dark class on document element
-  useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('clientops_theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('clientops_theme', 'light');
-    }
-  }, [isDark]);
-
   // Fetch projects from Firestore with server and offline fallbacks
   const refreshProjects = async () => {
     setLoadingProjects(true);
     try {
-      // 1. Try reading from Firestore first
-      const firestoreProjects = await loadProjectsFromFirestore();
-      if (firestoreProjects && firestoreProjects.length > 0) {
-        setProjects(firestoreProjects);
-        localStorage.setItem('clientops_cached_projects', JSON.stringify(firestoreProjects));
-        return;
+      // 1. Try reading from Firestore first if user is authenticated in Firebase
+      if (auth.currentUser) {
+        try {
+          const firestoreProjects = await loadProjectsFromFirestore();
+          if (firestoreProjects && firestoreProjects.length > 0) {
+            setProjects(firestoreProjects);
+            localStorage.setItem('clientops_cached_projects', JSON.stringify(firestoreProjects));
+            return;
+          }
+        } catch (fsErr) {
+          console.warn('Firestore load encountered an error, falling back to server API:', fsErr);
+        }
       }
 
-      // 2. If Firestore is empty or offline, query the API
+      // 2. Query the server API
       const headers: Record<string, string> = {};
       const token = authToken || (typeof window !== 'undefined' ? localStorage.getItem('alm_nexus_token') : null);
       if (token) {
@@ -511,8 +566,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setProjects(projs);
         localStorage.setItem('clientops_cached_projects', JSON.stringify(projs));
 
-        // Seed to Firestore in background so Firestore has persistent data!
-        if (projs.length > 0) {
+        // Seed to Firestore in background only if authenticated
+        if (projs.length > 0 && auth.currentUser) {
           seedProjectsToFirestore(projs).catch(e => console.warn('Could not seed initial projects to Firestore:', e));
         }
       } else {
@@ -534,7 +589,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Real-time Firestore synchronization for collaborative project updates
+  // SKILL mandate: Only attach onSnapshot listeners if auth is ready and user is authenticated
   useEffect(() => {
+    if (!firebaseUser) return;
     const unsubscribe = subscribeProjectsFromFirestore((liveProjects) => {
       if (liveProjects && liveProjects.length > 0) {
         setProjects(liveProjects);
@@ -542,7 +599,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [firebaseUser]);
 
   useEffect(() => {
     refreshProjects();
@@ -676,6 +733,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         t,
         isDark,
         setIsDark,
+        themeMode,
+        setThemeMode,
+        toggleTheme,
         activeTab,
         setActiveTab,
         activePortalProjectId,

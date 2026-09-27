@@ -32,12 +32,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Timer as TimerIcon,
-  Play
+  Play,
+  CalendarRange as TimelineIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PartnerEvaluationModal } from './PartnerEvaluationModal';
 import { ShareWithPartnerModal } from './ShareWithPartnerModal';
 import { ProjectTimeTrackingModal } from './ProjectTimeTrackingModal';
+import { ProjectTimelineBar } from './ProjectTimelineBar';
+import { ProjectTimelineFullView } from './ProjectTimelineFullView';
 import { generateDefaultTasksForProject } from '../lib/timeTrackingDefaults';
 import { SkeletonKanban, SkeletonTable } from './SkeletonLoader';
 import { EmptyState } from './EmptyState';
@@ -60,7 +63,7 @@ export const ProjectsPipeline: React.FC = () => {
     currentUser
   } = useApp();
 
-  const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
+  const [viewMode, setViewMode] = useState<'kanban' | 'table' | 'timeline'>('kanban');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedChannel, setSelectedChannel] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -480,26 +483,38 @@ export const ProjectsPipeline: React.FC = () => {
             <button
               id="btn-view-kanban"
               onClick={() => setViewMode('kanban')}
-              className={`p-1.5 rounded-lg transition duration-200 ${
+              className={`p-1.5 rounded-lg transition duration-200 cursor-pointer ${
                 viewMode === 'kanban'
                   ? 'bg-slate-800/80 text-indigo-400 shadow-md'
                   : 'text-slate-500 hover:text-slate-300'
               }`}
-              title="Kanban View"
+              title="Kanban Board View"
             >
               <KanbanIcon className="w-4 h-4" />
             </button>
             <button
               id="btn-view-table"
               onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded-lg transition duration-200 ${
+              className={`p-1.5 rounded-lg transition duration-200 cursor-pointer ${
                 viewMode === 'table'
                   ? 'bg-slate-800/80 text-indigo-400 shadow-md'
                   : 'text-slate-500 hover:text-slate-300'
               }`}
-              title="Table View"
+              title="Table Grid View"
             >
               <TableIcon className="w-4 h-4" />
+            </button>
+            <button
+              id="btn-view-timeline"
+              onClick={() => setViewMode('timeline')}
+              className={`p-1.5 rounded-lg transition duration-200 cursor-pointer ${
+                viewMode === 'timeline'
+                  ? 'bg-slate-800/80 text-indigo-400 shadow-md'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+              title="Project Timeline & Milestone Gantt View"
+            >
+              <TimelineIcon className="w-4 h-4" />
             </button>
           </div>
 
@@ -567,6 +582,26 @@ export const ProjectsPipeline: React.FC = () => {
         </span>
       </div>
 
+      {/* Project Milestones & Deadlines Horizontal Scrollable Bar */}
+      {!loadingProjects && roleFilteredProjects.length > 0 && (
+        <ProjectTimelineBar
+          projects={roleFilteredProjects}
+          onSelectProject={(proj) => {
+            if (role === 'collaborator') {
+              setEvaluatingProject(proj);
+            } else {
+              setTimeTrackingProject(proj);
+              setTimeTrackingInitialTab('tasks');
+            }
+          }}
+          onOpenTimeTracker={(proj) => {
+            setTimeTrackingProject(proj);
+            setTimeTrackingInitialTab('tasks');
+          }}
+          formatMoney={(amt) => `$${amt.toLocaleString()}`}
+        />
+      )}
+
       {/* Loading Skeleton */}
       {loadingProjects ? (
         viewMode === 'kanban' ? (
@@ -601,6 +636,27 @@ export const ProjectsPipeline: React.FC = () => {
         />
       ) : (
         <>
+          {/* TIMELINE FULL GANTT & MILESTONES VIEW */}
+          {viewMode === 'timeline' && (
+            <ProjectTimelineFullView
+              projects={filteredProjects}
+              onSelectProject={(proj) => {
+                if (role === 'collaborator') {
+                  setEvaluatingProject(proj);
+                } else {
+                  setTimeTrackingProject(proj);
+                  setTimeTrackingInitialTab('tasks');
+                }
+              }}
+              onOpenTimeTracker={(proj) => {
+                setTimeTrackingProject(proj);
+                setTimeTrackingInitialTab('tasks');
+              }}
+              onUpdateProject={updateProject}
+              formatMoney={(amt) => `$${amt.toLocaleString()}`}
+            />
+          )}
+
           {/* KANBAN VIEW WITH SMOOTH MOTION DRAG & DROP */}
           {viewMode === 'kanban' && (
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-start">

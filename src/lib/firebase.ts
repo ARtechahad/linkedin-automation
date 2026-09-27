@@ -11,6 +11,9 @@ import {
 } from 'firebase/auth';
 import { 
   getFirestore, 
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   collection, 
   doc, 
   getDoc, 
@@ -25,7 +28,8 @@ import {
   writeBatch,
   addDoc,
   where,
-  limit
+  limit,
+  getDocFromServer
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { ProjectLead, UserRole } from '../types';
@@ -36,11 +40,57 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 // Initialize Firebase Authentication
 export const auth = getAuth(app);
 
-// Initialize Cloud Firestore with dedicated Database ID if configured
+// Initialize Cloud Firestore with graceful fallback and bypass
 const configAny = firebaseConfig as any;
-export const db = configAny.firestoreDatabaseId
-  ? getFirestore(app, configAny.firestoreDatabaseId)
-  : getFirestore(app);
+const FIRESTORE_DB_ID = configAny?.firestoreDatabaseId;
+
+let dbInstance: any = null;
+try {
+  if (configAny?.projectId) {
+    if (FIRESTORE_DB_ID && FIRESTORE_DB_ID !== '(default)') {
+      try {
+        dbInstance = initializeFirestore(app, {
+          localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+          experimentalAutoDetectLongPolling: true,
+        }, FIRESTORE_DB_ID);
+      } catch {
+        try {
+          dbInstance = getFirestore(app, FIRESTORE_DB_ID);
+        } catch {
+          dbInstance = getFirestore(app);
+        }
+      }
+    } else {
+      try {
+        dbInstance = initializeFirestore(app, {
+          localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+          experimentalAutoDetectLongPolling: true,
+        });
+      } catch {
+        dbInstance = getFirestore(app);
+      }
+    }
+  }
+} catch (e) {
+  // Graceful fallback to default instance or offline mock
+  try {
+    dbInstance = getFirestore(app);
+  } catch {
+    dbInstance = null;
+  }
+}
+export const db = dbInstance;
+
+// Non-blocking connection check (only executed when called explicitly)
+export async function testConnection(): Promise<boolean> {
+  if (!db) return false;
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // Google Auth Provider & Gmail Workspace Scopes
 export const GMAIL_SCOPES = [
@@ -161,19 +211,22 @@ export async function syncUserProfile(
 ): Promise<FirebaseUserProfile | null> {
   if (!user || !user.uid) return null;
 
+  let assignedRole: UserRole = role;
+  let createdAt: any = serverTimestamp();
+
   try {
     const userRef = doc(db, 'users', user.uid);
-    const existingSnap = await getDoc(userRef);
-
-    let assignedRole: UserRole = role;
-    let createdAt = serverTimestamp();
-
-    if (existingSnap.exists()) {
-      const data = existingSnap.data();
-      if (data.role) {
-        assignedRole = data.role as UserRole;
+    try {
+      const existingSnap = await getDoc(userRef);
+      if (existingSnap.exists()) {
+        const data = existingSnap.data();
+        if (data.role) {
+          assignedRole = data.role as UserRole;
+        }
+        createdAt = data.createdAt || createdAt;
       }
-      createdAt = data.createdAt || createdAt;
+    } catch {
+      // If offline or cache miss during startup, keep default role and timestamp
     }
 
     const profileData: FirebaseUserProfile = {
@@ -186,10 +239,13 @@ export async function syncUserProfile(
       lastLoginAt: serverTimestamp()
     };
 
-    await setDoc(userRef, profileData, { merge: true });
+    // setDoc with persistent cache writes to local cache immediately and syncs to server
+    await setDoc(userRef, profileData, { merge: true }).catch(writeErr => {
+      console.warn('Queued profile sync locally (network reconnecting):', writeErr?.message || writeErr);
+    });
+
     return profileData;
   } catch (error) {
-    console.warn('Could not sync user profile to Firestore (may be offline):', error);
     return {
       uid: user.uid,
       email: user.email,
@@ -201,11 +257,61 @@ export async function syncUserProfile(
   }
 }
 
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): void {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  // Graceful log without throwing unhandled exceptions
+  if (process.env.NODE_ENV === 'development') {
+    console.debug('Firestore Operation Handled:', errInfo.operationType, path, errInfo.error);
+  }
+}
+
 /**
  * Save user preferences to `/userData/{userId}`
  */
 export async function saveUserPreferences(userId: string, prefs: UserPreferences): Promise<boolean> {
-  if (!userId) return false;
+  if (!db || !userId || !auth.currentUser) return false;
+  const pathForWrite = `userData/${userId}`;
   try {
     const prefRef = doc(db, 'userData', userId);
     await setDoc(prefRef, {
@@ -214,8 +320,8 @@ export async function saveUserPreferences(userId: string, prefs: UserPreferences
       updatedAt: serverTimestamp()
     }, { merge: true });
     return true;
-  } catch (e) {
-    console.warn('Failed to save user preferences to Firestore:', e);
+  } catch (error: any) {
+    handleFirestoreError(error, OperationType.WRITE, pathForWrite);
     return false;
   }
 }
@@ -224,15 +330,16 @@ export async function saveUserPreferences(userId: string, prefs: UserPreferences
  * Get user preferences from `/userData/{userId}`
  */
 export async function getUserPreferences(userId: string): Promise<UserPreferences | null> {
-  if (!userId) return null;
+  if (!db || !userId || !auth.currentUser) return null;
+  const pathForGet = `userData/${userId}`;
   try {
     const prefRef = doc(db, 'userData', userId);
     const snap = await getDoc(prefRef);
     if (snap.exists()) {
       return snap.data() as UserPreferences;
     }
-  } catch (e) {
-    console.warn('Failed to load user preferences from Firestore:', e);
+  } catch (error: any) {
+    handleFirestoreError(error, OperationType.GET, pathForGet);
   }
   return null;
 }
@@ -241,8 +348,12 @@ export async function getUserPreferences(userId: string): Promise<UserPreference
  * Load all project documents from Firestore `projects` collection
  */
 export async function loadProjectsFromFirestore(): Promise<ProjectLead[]> {
+  if (!db || !auth.currentUser) {
+    return [];
+  }
+  const pathForGetDocs = 'projects';
   try {
-    const projectsCol = collection(db, 'projects');
+    const projectsCol = collection(db, pathForGetDocs);
     const snapshot = await getDocs(projectsCol);
     if (snapshot.empty) {
       return [];
@@ -255,8 +366,8 @@ export async function loadProjectsFromFirestore(): Promise<ProjectLead[]> {
       } as ProjectLead);
     });
     return projects;
-  } catch (error) {
-    console.warn('Error loading projects from Firestore:', error);
+  } catch (error: any) {
+    handleFirestoreError(error, OperationType.LIST, pathForGetDocs);
     return [];
   }
 }
@@ -265,7 +376,8 @@ export async function loadProjectsFromFirestore(): Promise<ProjectLead[]> {
  * Save or update a project document in Firestore `projects/{projectId}`
  */
 export async function saveProjectToFirestore(project: Partial<ProjectLead> & { id: string }): Promise<boolean> {
-  if (!project.id) return false;
+  if (!db || !project.id || !auth.currentUser) return false;
+  const pathForWrite = `projects/${project.id}`;
   try {
     const projectRef = doc(db, 'projects', project.id);
     await setDoc(projectRef, {
@@ -273,8 +385,8 @@ export async function saveProjectToFirestore(project: Partial<ProjectLead> & { i
       updatedAt: new Date().toISOString()
     }, { merge: true });
     return true;
-  } catch (error) {
-    console.error('Error saving project to Firestore:', error);
+  } catch (error: any) {
+    handleFirestoreError(error, OperationType.WRITE, pathForWrite);
     return false;
   }
 }
@@ -283,9 +395,10 @@ export async function saveProjectToFirestore(project: Partial<ProjectLead> & { i
  * Batch seed projects to Firestore if collection is empty
  */
 export async function seedProjectsToFirestore(initialProjects: ProjectLead[]): Promise<boolean> {
-  if (!initialProjects || initialProjects.length === 0) return false;
+  if (!db || !initialProjects || initialProjects.length === 0 || !auth.currentUser) return false;
+  const pathForSeed = 'projects';
   try {
-    const projectsCol = collection(db, 'projects');
+    const projectsCol = collection(db, pathForSeed);
     const existing = await getDocs(projectsCol);
     if (!existing.empty) {
       // Already has data in Firestore
@@ -303,8 +416,8 @@ export async function seedProjectsToFirestore(initialProjects: ProjectLead[]): P
     });
     await batch.commit();
     return true;
-  } catch (error) {
-    console.warn('Error seeding projects to Firestore:', error);
+  } catch (error: any) {
+    handleFirestoreError(error, OperationType.WRITE, pathForSeed);
     return false;
   }
 }
@@ -316,8 +429,12 @@ export function subscribeProjectsFromFirestore(
   onData: (projects: ProjectLead[]) => void,
   onError?: (err: Error) => void
 ): () => void {
+  if (!db || !auth.currentUser) {
+    return () => {};
+  }
+  const pathForSubscribe = 'projects';
   try {
-    const projectsCol = collection(db, 'projects');
+    const projectsCol = collection(db, pathForSubscribe);
     const unsubscribe = onSnapshot(projectsCol, (snapshot) => {
       const items: ProjectLead[] = [];
       snapshot.forEach(docSnap => {
@@ -328,12 +445,11 @@ export function subscribeProjectsFromFirestore(
       });
       onData(items);
     }, (err) => {
-      console.warn('Firestore projects subscription error:', err);
+      handleFirestoreError(err, OperationType.GET, pathForSubscribe);
       if (onError) onError(err);
     });
     return unsubscribe;
   } catch (e: any) {
-    console.warn('Could not set up Firestore projects listener:', e);
     return () => {};
   }
 }
@@ -348,16 +464,19 @@ export async function saveChatMessageToFirestore(msg: {
   text: string;
   timestamp?: string;
 }): Promise<boolean> {
+  if (!db || !auth.currentUser) return false;
+  const pathForAdd = 'chatMessages';
   try {
-    const chatCol = collection(db, 'chatMessages');
+    const chatCol = collection(db, pathForAdd);
     await addDoc(chatCol, {
       ...msg,
+      senderId: auth.currentUser.uid,
       timestamp: msg.timestamp || new Date().toISOString(),
       createdAt: serverTimestamp()
     });
     return true;
-  } catch (error) {
-    console.warn('Could not save chat message to Firestore:', error);
+  } catch (error: any) {
+    handleFirestoreError(error, OperationType.CREATE, pathForAdd);
     return false;
   }
 }
@@ -369,8 +488,12 @@ export function subscribeChatMessagesFromFirestore(
   channel: string,
   onData: (messages: any[]) => void
 ): () => void {
+  if (!db || !auth.currentUser) {
+    return () => {};
+  }
+  const pathForChatQuery = 'chatMessages';
   try {
-    const chatCol = collection(db, 'chatMessages');
+    const chatCol = collection(db, pathForChatQuery);
     const q = query(
       chatCol,
       where('channel', '==', channel),
@@ -386,11 +509,10 @@ export function subscribeChatMessagesFromFirestore(
         onData(msgs);
       }
     }, (err) => {
-      console.warn('Firestore chat messages subscription warning:', err);
+      handleFirestoreError(err, OperationType.GET, pathForChatQuery);
     });
     return unsubscribe;
   } catch (e) {
-    console.warn('Could not set up chat listener:', e);
     return () => {};
   }
 }

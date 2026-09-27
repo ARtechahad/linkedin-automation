@@ -36,6 +36,7 @@ import {
   X
 } from 'lucide-react';
 import { UserRole, SupportedLanguage, SupportedCurrency } from '../types';
+import { ThemeToggle } from './ThemeToggle';
 
 export const Navbar: React.FC = () => {
   const {
@@ -382,7 +383,7 @@ export const Navbar: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Privacy & Dark mode toggles */}
+                  {/* Privacy & Dark/Light mode toggles */}
                   <div className="pt-2 border-t border-slate-100 dark:border-white/10 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                     <button
                       onClick={() => {
@@ -395,13 +396,9 @@ export const Navbar: React.FC = () => {
                       <span>GDPR / Privacy</span>
                     </button>
 
-                    <button
-                      onClick={() => setIsDark(!isDark)}
-                      className="hover:text-slate-900 dark:hover:text-white flex items-center gap-1 transition"
-                    >
-                      {isDark ? <Sun className="w-3 h-3 text-amber-400" /> : <Moon className="w-3 h-3 text-slate-600" />}
-                      <span>{isDark ? 'Light Theme' : 'Dark Theme'}</span>
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <ThemeToggle variant="compact" />
+                    </div>
                   </div>
                 </div>
               )}

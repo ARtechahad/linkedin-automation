@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { SupportedCurrency, UserRole } from '../types';
+import { ThemeToggle } from './ThemeToggle';
 
 interface TopHeaderProps {
   onOpenMobileSidebar: () => void;
@@ -76,42 +77,8 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenMobileSidebar }) => 
       {/* Right: Quick Context Badges */}
       <div className="flex items-center gap-2 sm:gap-2.5">
         
-        {/* Manual Theme Toggle Switch */}
-        <button
-          type="button"
-          role="switch"
-          aria-checked={isDark}
-          aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-          id="btn-header-theme-toggle"
-          onClick={() => {
-            const nextMode = !isDark;
-            setIsDark(nextMode);
-            showToast(`Switched to ${nextMode ? 'Dark' : 'Light'} Mode (manual override active)`, 'info');
-          }}
-          className="group relative flex items-center gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-all duration-200 cursor-pointer shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-          title={isDark ? "Current: Dark Mode (Click to switch to Light Mode)" : "Current: Light Mode (Click to switch to Dark Mode)"}
-        >
-          <div className="relative flex items-center justify-center w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-110">
-            {isDark ? (
-              <Moon className="w-3.5 h-3.5 text-indigo-400 drop-shadow-xs transition-transform duration-300" />
-            ) : (
-              <Sun className="w-3.5 h-3.5 text-amber-500 drop-shadow-xs transition-transform duration-300" />
-            )}
-          </div>
-
-          <span className="hidden md:inline text-xs font-bold select-none text-slate-800 dark:text-slate-200">
-            {isDark ? 'Dark' : 'Light'}
-          </span>
-
-          {/* Tactile track & thumb slider */}
-          <div className="flex items-center w-7 h-3.5 sm:w-8 sm:h-4 bg-slate-300 dark:bg-slate-700/80 rounded-full p-0.5 transition-colors duration-300">
-            <div
-              className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-white dark:bg-indigo-400 shadow-xs transform transition-transform duration-300 ${
-                isDark ? 'translate-x-3.5 sm:translate-x-4' : 'translate-x-0'
-              }`}
-            />
-          </div>
-        </button>
+        {/* Professional Real Light / Dark / System Mode Switcher */}
+        <ThemeToggle variant="compact" />
 
         {/* Currency Quick Switcher */}
         <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-slate-900/80 text-xs font-semibold">

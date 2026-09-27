@@ -36,6 +36,7 @@ import { AuthModal } from './components/AuthModal';
 import { DiscordExportModal } from './components/DiscordExportModal';
 import { ToastNotification } from './components/ToastNotification';
 import { RoleLoginView } from './components/RoleLoginView';
+import { RoleRouteGuard } from './components/RoleRouteGuard';
 
 const AppContent: React.FC = () => {
   const {
@@ -72,29 +73,77 @@ const AppContent: React.FC = () => {
   const renderActiveView = () => {
     switch (activeTab) {
       case 'pipeline':
-        return <ProjectsPipeline />;
+        return (
+          <RoleRouteGuard allowedRoles={['admin', 'bd_head', 'sales', 'coordinator', 'developer', 'collaborator']} moduleName="Pipeline & Lead Deals">
+            <ProjectsPipeline />
+          </RoleRouteGuard>
+        );
       case 'gmail':
-        return <GmailWorkspaceView />;
+        return (
+          <RoleRouteGuard allowedRoles={['admin', 'bd_head', 'sales', 'coordinator', 'developer']} moduleName="Gmail Workspace">
+            <GmailWorkspaceView />
+          </RoleRouteGuard>
+        );
       case 'inbox':
-        return <UnifiedInboxView />;
+        return (
+          <RoleRouteGuard allowedRoles={['admin', 'bd_head', 'sales', 'coordinator']} moduleName="Unified Omni-Inbox">
+            <UnifiedInboxView />
+          </RoleRouteGuard>
+        );
       case 'sop':
-        return <SOPGuideView />;
+        return (
+          <RoleRouteGuard allowedRoles={['admin', 'bd_head', 'coordinator', 'developer']} moduleName="SOP Quality & Gatekeeping">
+            <SOPGuideView />
+          </RoleRouteGuard>
+        );
       case 'outreach':
-        return <OutreachView />;
+        return (
+          <RoleRouteGuard allowedRoles={['admin', 'bd_head', 'sales']} moduleName="Outreach Engine & Scrapers">
+            <OutreachView />
+          </RoleRouteGuard>
+        );
       case 'analytics':
-        return <DashboardAnalytics />;
+        return (
+          <RoleRouteGuard allowedRoles={['admin', 'bd_head']} moduleName="Executive Revenue Analytics">
+            <DashboardAnalytics />
+          </RoleRouteGuard>
+        );
       case 'free_apis':
-        return <FreeApiToolsView />;
+        return (
+          <RoleRouteGuard allowedRoles={['admin', 'bd_head', 'sales', 'coordinator', 'developer']} moduleName="Agency Live Tools & APIs">
+            <FreeApiToolsView />
+          </RoleRouteGuard>
+        );
       case 'portal':
-        return <ClientPortalView />;
+        return (
+          <RoleRouteGuard allowedRoles={['admin', 'bd_head', 'client_guest', 'collaborator']} moduleName="Client Portal">
+            <ClientPortalView />
+          </RoleRouteGuard>
+        );
       case 'commissions':
-        return <CommissionCalculatorView />;
+        return (
+          <RoleRouteGuard allowedRoles={['admin', 'bd_head', 'sales']} moduleName="Commission Ledger & Payouts">
+            <CommissionCalculatorView />
+          </RoleRouteGuard>
+        );
       case 'chat':
-        return <TeamChatView />;
+        return (
+          <RoleRouteGuard allowedRoles={['admin', 'bd_head', 'sales', 'coordinator', 'developer', 'collaborator']} moduleName="Team Channels & Chat">
+            <TeamChatView />
+          </RoleRouteGuard>
+        );
       case 'vault':
-        return <SecureFileVault />;
+        return (
+          <RoleRouteGuard allowedRoles={['admin', 'bd_head', 'coordinator', 'developer']} moduleName="Secure File & Credential Vault">
+            <SecureFileVault />
+          </RoleRouteGuard>
+        );
       case 'integrations':
-        return <IntegrationsView />;
+        return (
+          <RoleRouteGuard allowedRoles={['admin', 'bd_head']} moduleName="External Integrations & Webhooks">
+            <IntegrationsView />
+          </RoleRouteGuard>
+        );
       default:
         return <ProjectsPipeline />;
     }

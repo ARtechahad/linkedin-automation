@@ -2,31 +2,49 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to verify user is authenticated
+    // Default-deny catch-all (Skill mandate: Global Safety Net)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitive helpers
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // User profiles
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Health / boot connection probe test doc
+    match /test/{testDoc} {
+      allow read: if true;
+    }
+
+    // User profiles collection
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isOwner(userId);
     }
 
     // Projects pipeline & leads
     match /projects/{projectId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
     }
 
     // User preferences and state
     match /userData/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read, write: if isOwner(userId);
     }
 
     // Internal team chat messages
     match /chatMessages/{messageId} {
       allow read, create: if isSignedIn();
-      allow update, delete: if isSignedIn() && request.auth.uid == resource.data.senderId;
+      allow update, delete: if isSignedIn() && (
+        resource.data.senderId == request.auth.uid ||
+        resource.data.sender == request.auth.token.email
+      );
     }
   }
 }

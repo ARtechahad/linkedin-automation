@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { UserRole } from '../types';
+import { ThemeToggle } from './ThemeToggle';
 
 interface SidebarProps {
   mobileOpen: boolean;
@@ -229,20 +230,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
         {/* Bottom Section: Theme Toggle, Telemetry, and Logout */}
         <div className="p-3 border-t border-slate-200 dark:border-white/[0.08] space-y-2 bg-slate-50/50 dark:bg-[#070a12]/50">
           
-          {/* Dark / Light Mode Toggle Switch */}
-          <div className="flex items-center justify-between p-2 rounded-xl bg-slate-100 dark:bg-slate-900/90 border border-slate-200 dark:border-white/10">
-            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-              {isDark ? <Moon className="w-3.5 h-3.5 text-indigo-400" /> : <Sun className="w-3.5 h-3.5 text-amber-500" />}
-              <span>{isDark ? 'Dark Theme' : 'Light Theme'}</span>
-            </span>
-
-            <button
-              id="sidebar-theme-toggle-btn"
-              onClick={() => setIsDark(!isDark)}
-              className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-bold shadow-xs hover:bg-indigo-500 transition cursor-pointer"
-            >
-              Switch to {isDark ? 'Light' : 'Dark'}
-            </button>
+          {/* Real Light / Dark / System Mode Switcher */}
+          <div className="flex flex-col gap-1.5 p-2 rounded-xl bg-slate-100 dark:bg-slate-900/90 border border-slate-200 dark:border-white/10">
+            <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-slate-300">
+              <span className="flex items-center gap-1.5">
+                {isDark ? <Moon className="w-3.5 h-3.5 text-indigo-400" /> : <Sun className="w-3.5 h-3.5 text-amber-500" />}
+                <span>Theme Mode</span>
+              </span>
+              <span className="text-[10px] font-mono uppercase text-slate-400">
+                {isDark ? 'Dark' : 'Light'}
+              </span>
+            </div>
+            <ThemeToggle variant="segmented" showLabels={true} className="w-full justify-between" />
           </div>
 
           {/* SOP Engine Status / Test Trigger */}
